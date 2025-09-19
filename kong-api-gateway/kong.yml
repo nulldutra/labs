@@ -1,0 +1,43 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: api_gateway
+    host: httpbin.konghq.com
+    protocol: http
+    routes:
+      - name: hello_api_gateway
+        strip_path: true
+        paths:
+          - /
+
+      - name: api_gateway_rate_limiting
+        strip_path: true
+        paths:
+          - /kong
+
+plugins:
+  - name: key-auth
+    service: api_gateway
+
+  - name: rate-limiting
+    route: api_gateway_rate_limiting
+    config:
+      minute: 5
+      policy: local
+  
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - "X-New-Header: AddedbyKong"
+        json:
+          - "version: 1"
+      remove:
+        headers:
+          - "Date"
+
+consumers:
+  - username: app
+    keyauth_credentials:
+      - key: secret
