@@ -1,0 +1,59 @@
+services:
+  kong-db:
+    image: postgres:15-alpine
+    container_name: kong-db
+    restart: on-failure
+    networks:
+      - kong-net
+    environment:
+      POSTGRES_DATABASE: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong
+    volumes:
+      - kong-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kong-migrations:
+    image: kong/kong-gateway:3.6.0.0
+    container_name: kong-migrations
+    command: kong migrations bootstrap
+    restart: on-failure
+    depends_on:
+      kong-db:
+        condition: service_healthy
+    networks:
+      - kong-net
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_DATABASE: kong
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+
+  kong:
+    image: kong/kong-gateway:3.6.0.0
+    container_name: kong
+    restart: on-failure
+    depends_on:
+      - kong-db
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_DATABASE: kong
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PROXY_LISTEN: 0.0.0.0:8000, 0.0.0.0:8443 ssl
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
+      KONG_ADMIN_GUI_LISTEN: 0.0.0.0:8002
+    networks:
+      - kong-net
+volumes:
+  kong-postgres-data:
+
+networks:
+  kong-net:
+    driver: bridge
